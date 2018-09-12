@@ -1,0 +1,348 @@
+---
+title: "Furniture company sales analysis"
+author: "Afsar Ali"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+---
+
+### Code header 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# Course: BUAN 5210
+# Purpose: Find ways to increase profitability for the company
+# Author: Afsar Ali
+# Data: D7_Office.csv
+# Date: Oct 20, 2016
+```
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE, results = "hide"}
+#	Clear workspace at begining
+rm(list = ls(all = TRUE))
+
+library(tidyverse)
+library(gridExtra)
+library(waterfall)
+library(lubridate)
+library(plotly)
+library(zoo)
+library(kableExtra)
+library(Hmisc)
+
+# Load data
+dat1 <- read.csv("D7_Office.csv")
+
+# Data Manipulation
+dat1 <- dat1 %>% 
+  mutate(Cost = Sales - Profit) %>% # Added Cost
+  mutate(Price = Sales / Quantity) %>%  #Added Price
+  mutate(PPQ = Profit / Quantity) %>% #Added Profit per quantity
+  mutate(Order.Date = mdy(Order.Date)) %>% #format Date
+  mutate(Ship.Date = mdy(Ship.Date)) %>% #format Date
+  mutate(qtr=as.character(as.yearqtr(Order.Date))) %>% #Change qtr as Character 
+  mutate(Cost = Sales - Profit) %>% # Added Cost
+  mutate(Pwodis = (Sales/(1-Discount)) - Cost)  %>% # Profit with out Discount
+  mutate(DicountGiven = (Sales * Discount)) #Discount Given
+
+# Look at data
+glimpse(dat1)
+summary(dat1)
+describe(dat1)
+```
+###Histogram of the relevent Variables
+
+- units sold may have a skewed distribution
+- there are Outliers 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# Units sold may have a skewed distribution
+par(mfrow=c(4,2))
+  hist(dat1$Sales) # Outliers 
+  hist(dat1$Quantity)
+  hist(dat1$Discount) # Outliers 
+  hist(dat1$Profit) # Outliers 
+  hist(dat1$Cost) # Outliers 
+  hist(dat1$Price) # Outliers 
+  hist(dat1$PPQ) # Outliers 
+  hist(dat1$Pwodis)
+#looks like there are Outliers 
+  
+```
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# Units sold may have a skewed distribution
+par(mfrow=c(4,2))
+  barplot(table(dat1$Category), main = "Category") #lots of Office Supply
+  barplot(table(dat1$Sub.Category), main = "Sub Category") 
+  barplot(table(dat1$Segment), main = "Segment") #Consumer to Corporate to Home Office
+  barplot(table(dat1$Region), main = "Region") #South is the lowest 
+  barplot(table(dat1$Ship.Mode ), main = "Ship Mode") #Standard Class is High
+  barplot(table(dat1$Order.Date), main = "Order Date")
+  barplot(table(dat1$Customer.ID), main = "Customer ID")  
+  barplot(table(dat1$qtr), main = "Order date M_Y") #Q4 Has the higest Observation, Q1 is low 
+  
+```
+
+###Sales Category Analysis
+- Review at Mean Profit per by Category
+- Why does technology have a big Variance
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# 90% CI, get z-value for upper tail, use .95 since is one sided
+z <- qnorm(.95)
+
+dat1 %>%
+  group_by(Category) %>%
+  summarise(m_p = mean(Profit), sd_p = sd(Profit), 
+            n = n(), ci = z * sd_p/sqrt(n)) %>%
+  ggplot(aes(x = Category, y = m_p)) +
+    geom_bar(stat = "identity") +
+    geom_errorbar(aes(ymin = m_p - ci, ymax = m_p + ci), width = 0.5)
+
+#Technology has a big Variance??
+
+```
+
+###Quantity and sales analysis by Rigion
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# CI on mean Quantity by Region and Segment type
+dat1 %>%
+  group_by(Region, Segment) %>%
+  summarise(m_p = mean(Quantity), sd_p = sd(Quantity), 
+            n = n(), ci = z * sd_p/sqrt(n)) %>%
+  ggplot(aes(x = Region, y = m_p, fill = as.factor(Segment))) +
+    geom_bar(stat = "identity", position = "dodge") +
+    geom_errorbar(aes(ymin = m_p - ci, ymax = m_p + ci), 
+                width = 0.5, position = position_dodge(0.9))
+
+#Qantity sold doesnt have any insight 
+
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# CI on mean profit by Region and Segment type
+dat1 %>%
+  group_by(Region, Segment) %>%
+  summarise(m_p = mean(Profit), sd_p = sd(Profit), 
+            n = n(), ci = z * sd_p/sqrt(n)) %>%
+  ggplot(aes(x = Region, y = m_p, fill = as.factor(Segment))) +
+    geom_bar(stat = "identity", position = "dodge") +
+    geom_errorbar(aes(ymin = m_p - ci, ymax = m_p + ci), 
+                width = 0.5, position = position_dodge(0.9))
+
+#Central has issues with Consumer Segment and Corporate sector has big Variance, Why??
+#South has huge variance in Home Office, Centeal is more alarming 
+
+## Side note --Sales has potential in south Home Office ***
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# CI on mean Discount by Region and Segment type
+dat1 %>%
+  group_by(Region, Segment) %>%
+  summarise(m_p = mean(Discount), sd_p = sd(Discount), 
+            n = n(), ci = z * sd_p/sqrt(n)) %>%
+  ggplot(aes(x = Region, y = m_p, fill = as.factor(Segment))) +
+    geom_bar(stat = "identity", position = "dodge") +
+    geom_errorbar(aes(ymin = m_p - ci, ymax = m_p + ci), 
+                width = 0.5, position = position_dodge(0.9))
+
+#Nothing significant 
+
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# CI on mean profit by Region and Category
+dat1 %>%
+  group_by(Region, Category) %>%
+  summarise(m_p = mean(Profit), sd_p = sd(Profit), 
+            n = n(), ci = z * sd_p/sqrt(n)) %>%
+  ggplot(aes(x = Region, y = m_p, fill = as.factor(Category))) +
+    geom_bar(stat = "identity", position = "dodge") +
+    geom_errorbar(aes(ymin = m_p - ci, ymax = m_p + ci), 
+                width = 0.5, position = position_dodge(0.9))
+
+#Central Office supply Makes the least profit
+#Furniture and Office Supplies in general makes less profit. 
+#Recomend selling only Techonology in central 
+#Recomend Closing Furniture in east 
+
+## Side note --Sales has potential in south Technology ***
+```
+
+
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# Mean cost
+# Filter to find significance in Central 
+
+(g <- dat1 %>%
+  filter(Region %in% c("Central")) %>%
+  group_by(Sub.Category, Segment) %>%
+  mutate(Cost = Sales - Profit) %>% 
+  summarise(t_r = sum(Cost), m_r = mean(Cost), sd_r = sd(Cost),
+            n = n(), ci = z * sd_r/sqrt(n)) %>%
+  ggplot(aes(x = reorder(Sub.Category, m_r), y = m_r, fill = as.factor(Segment))) +
+    geom_bar(stat = "identity", position = "dodge") +
+    geom_errorbar(aes(ymin = m_r - ci, ymax = m_r + ci), 
+                  width = 0.3, position = position_dodge(0.9)) +
+  coord_flip()
+)
+
+#Cant really tell much from here
+```
+
+
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# Mean cost
+
+(g <- dat1 %>%
+  group_by(Sub.Category, Region) %>%
+  mutate(Cost = Sales - Profit) %>% 
+  summarise(t_r = sum(Cost), m_r = mean(Cost), sd_r = sd(Cost),
+            n = n(), ci = z * sd_r/sqrt(n)) %>%
+  ggplot(aes(x = reorder(Sub.Category, m_r), y = m_r, fill = as.factor(Region))) +
+    geom_bar(stat = "identity", position = "dodge") +
+    geom_errorbar(aes(ymin = m_r - ci, ymax = m_r + ci), 
+                  width = 0.3, position = position_dodge(0.9)) +
+  coord_flip()
+)
+
+#Cant really tell much from here
+```
+
+### Profitability Analysis
+
+Machines and makes negative profit in central maybe consider stop selling Machines on loss!
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# Mean profit
+# Filter to find significance in Central 
+# Took out Copier and foused in on Consumer and corporate sectore
+(g <- dat1 %>%
+  filter(Region %in% c("Central")) %>%
+  filter(!Sub.Category %in% c("Copiers")) %>%
+  filter(Segment %in% c("Consumer", "Corporate")) %>%
+  group_by(Sub.Category, Segment) %>%
+  summarise(t_r = sum(Profit), m_r = mean(Profit), sd_r = sd(Profit),
+            n = n(), ci = z * sd_r/sqrt(n)) %>%
+  ggplot(aes(x = reorder(Sub.Category, m_r), y = m_r, fill = as.factor(Segment))) +
+    geom_bar(stat = "identity", position = "dodge") +
+    geom_errorbar(aes(ymin = m_r - ci, ymax = m_r + ci), 
+                  width = 0.3, position = position_dodge(0.9)) +
+  coord_flip()
+)
+
+# Looks like Machines and makes negetive profit in central stop selling Machines on loss!
+```
+
+There seems to be cyclical effect
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+#Profit over time!
+
+dat1 %>%
+  group_by(qtr) %>%
+  summarise(TotalProfit = sum(Profit), TotalPPQ = sum(PPQ), 
+            TotalQuantity = sum(Quantity), TotalPwodis = sum(Pwodis))  %>%
+  plot_ly(x = ~qtr, y = ~TotalQuantity, name = 'TotalQuantity', type = 'scatter', mode = 'lines') %>%
+    add_trace(y = ~TotalPPQ, name = 'TotalPPQ', mode = 'lines') %>%
+    add_trace(y = ~TotalProfit, name = 'TotalProfit', mode = 'lines') %>%
+  add_trace(y = ~TotalPwodis, name = 'TotalPwodis', mode = 'lines') #This is profit without Discount 
+
+#Why is there a Huge lows in Q2? 
+#the differnt lines looks normal.
+
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+#profit just by it self
+
+dat1 %>%
+  group_by(qtr) %>%
+  summarise(TotalProfit = sum(Profit))  %>%
+  plot_ly(x = ~qtr, y = ~TotalProfit, type = 'scatter', mode = 'lines')
+
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+#review Total profit
+
+dat1 %>%
+  group_by(Region, Category)%>%
+  summarise(TotalProfit = sum(Profit))%>%
+  ggplot(aes(x= Region, y= TotalProfit, fill = Category))+
+  geom_bar(stat = "identity", position = "dodge")
+ 
+        
+    
+```
+
+Tables, Machines, binder and Furniture has loss due to 80% discount
+
+```{r fig.width = 10, fig.height = 10, echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# Facets seperating scatter plot by brand
+ggplot(dat1, aes(x = qtr, y = Profit)) +
+  geom_point(aes(color = as.character(Discount))) +
+  facet_wrap(~ Sub.Category)  +
+  labs(color = "Discount") +
+  labs(x = "Region", y = "Profit") +
+  ggtitle("Loss on binders and Maschines") +
+  theme(text = element_text(size = 20))
+
+#Tables, Machines, binder and Funitures has loss due to 80% discount
+
+```
+
+Furniture has less quantity and profit density followed by Office Supplies
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# Scatter with volume and units contour but seperate by promo (a factor variable)
+ggplot(dat1, aes(x = Profit, y = Quantity)) +
+  stat_density2d(aes(color = as.character(Category)), size = 0.9) 
+
+#Furniture has less quntity and profit density followed by Office Subbplies Looks like 
+
+```
+
+### Discount Analysis
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+#Does Discount effect Quantity Sold? 
+
+dat1 %>%
+  group_by(Category, Sub.Category)%>%
+  summarise(QuantitySold = sum(Quantity))%>%
+    ggplot(aes(x=Category, y= QuantitySold, fill = Sub.Category)) + 
+      geom_bar(stat = "identity", position = "dodge", color = "black") + 
+      ggtitle("Quantity Sold per Sub-Category") + 
+      labs(y="Quantity Sold")
+
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+#whats the Discount taken look like?
+
+dat1 %>%
+  group_by(Category, Sub.Category)%>%
+  summarise(TotalDiscounts = sum(DicountGiven))%>%
+   ggplot(aes(x=Category, y= TotalDiscounts, fill = Sub.Category)) + 
+     geom_bar(stat = "identity", position = "dodge", color = "black") + 
+     ggtitle("Discounts Given per Sub-Category") + 
+     labs(y="Total Discounts ($)")
+
+#Discount doesnt seem to help with quantity on the trouble items like furnitures, espacially tables.
+
+```
+
+

@@ -1,0 +1,248 @@
+---
+title: "Sales Analysis"
+author: "Afsar Ali"
+output: 
+  html_document: 
+    df_print: kable
+    fig_caption: yes
+    toc: yes
+    toc_depth: 4
+---
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# Course: BUAN 5210
+# Title: Post Promo and Ad analysis
+# Purpose: Make recommendations regarding promotions and advertisements
+# Data: MTP_Data.csv
+# Date: Oct 26, 2017
+```
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+#	Clear workspace at begining
+rm(list = ls(all = TRUE))
+
+# Load packages
+library(tidyverse)
+library(GGally)
+library(gridExtra)
+library(kableExtra)
+
+# Load Data
+mtp <- read.csv("MTP_Data.csv")
+
+#Initial Review of the data
+glimpse(mtp)
+
+# Add Total Sale and Total volume to the data frame
+mtp<- mutate(mtp, TotalSale = units*price)
+mtp<- mutate(mtp, TotalVolume = units*volume)
+
+# Seprate by Compancy 
+mtp <- mtp %>%
+    separate(brand, into = c("company", "brand"), sep = "\\ ", extra = "merge")
+
+## Making the Data Pretty 
+library(plyr)
+mtp$promo<- factor(mtp$promo)
+mtp$promo<- revalue(mtp$promo, c ("0" = "No Promo", "1" = "Promo"))
+mtp$ad<- revalue(mtp$ad, c ("NONE" = "No Ad", "A" = "Big Ad", "B" = "Mid/Small Ad"))
+mtp$company<- revalue(mtp$company, c ("GENERAL" = "GENERAL MILLS"))
+mtp$brand<- revalue(mtp$brand, c ("MILLS CINNAMON TST CR" = "CINNAMON TST CR"))
+library(tidyverse)
+
+#review the updated data
+glimpse(mtp)
+
+```
+
+Introduction
+=========================================
+This memo provides a brief analysis of the sales data provided by the Post Cereal Company, with particular focus given to how promotions and advertising translate into sales, in terms of both units sold and sales dollars.  No cost information was provided therefore a cost benefit analysis is not included.  An initial look at the data reveals that, of the 11 brands in the data set, Kellogg carries 8, while Post carries only 2, and General Mills with 1.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+kable(mtp %>%
+  group_by(brand, company ) %>%
+  select(company) %>%
+  table())
+```
+
+Finding 1: Kellogg has the most sale  
+=========================================
+This broad analysis of the data shows that Post Cereal is a distant second to Kellogg Cereal in terms of Sales, Units Sold, Number of Promotions, and Number of Ads (all types), and General Mills ranks last by all variables.  These findings are reasonable given that Kellogg makes up the largest proportion of observations in the data.  To normalize this discrepancy the rest of the analysis looks at trends on a Brand level, and we will not be examining the General Mills data as we only have data on a single brand.  This graph shows a how Post sales are compared to General Mills and Kellogg.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+ggplot(mtp, aes(x=reorder(promo, desc(TotalSale)), y= TotalSale, fill = ad)) + 
+  stat_summary(fun.y = "sum", geom ="bar", position = "stack") +
+  geom_hline(yintercept = 0, color = "black") +
+  labs(fill = "Ad Type") +
+  ggtitle("Kelloggs has the highest sale followed by Post") +
+  ylab("Total Sale") +
+  xlab("Promotions") +
+  theme_light() +
+  facet_grid(. ~ company)
+```
+
+Finding 2: Post has the top performing brand 
+=========================================
+We will focus on 5 key brands the 2 Post brands, Honey Bunches of Oats (P-HBO) & Shredded Wheat (P-SW), The Kelloggs brands that are most comparable to the Post brands in terms of flavor and grain type, Smart Start (K-SS) & Frosted Mini Heats (K-FMW) respectively, and Kelloggs top performing brand Frosted Flakes (K-FF).
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+## Filtered out Gemeral Mills and focued on the 5 brand
+library(plyr)
+mtp.pk <- filter(mtp, company == c("POST", "KELLOGGS")) 
+mtp.pk <- filter(mtp, brand == c("HONEY BUNCHES OF OATS", "SHREDDED WHEAT", 
+                                 "SMART START", "FROSTED MINI WHEATS", "FROSTED FLAKES"))
+mtp.pk$brand <- revalue(mtp.pk$brand, c ("HONEY BUNCHES OF OATS" = "P-HBO", "SHREDDED WHEAT" = "P-SW", 
+                                         "SMART START" = "K-SS", "FROSTED MINI WHEATS" = "K-FMW", 
+                                         "FROSTED FLAKES" = "K-FF"))
+library(tidyverse)
+##Filtered Graph of the 5 Brand
+
+mtp.pk %>%
+ggplot(aes(x=reorder(brand, desc(TotalSale)), y=TotalSale, fill = ad)) + 
+  stat_summary(fun.y = "sum", geom ="bar", position = "stack") +
+  labs(fill = "Ad Type") +
+  ggtitle("Post sales are close to Kelloggs with there leading brand (HBO)") +
+  ylab("Total Sale") +
+  xlab("Brand") +
+  theme_light() +
+  facet_grid(. ~ promo)
+```
+
+This graph looks at Total Sales per brand broken down by whether there was a promotion running at the time of the sale or not. As you can see Posts Honey Bunches of Oats (HBO) leads during promotion and with-out promotion very close to having top sales, mainly due to Mid/Small ad, when comparing it to Kellogg Frosted Flakes (FF). In this case clearly the ad has an impact on there sales. Posts other brand, Shredded Wheat (SW) is last in sales, while Kelloggs Frosted Mini Wheat (FMW) is forth on both counts. The Big-ad makes a huge impact on Frosted Mini Wheat (FMW) sale. These observations will be important as we look at how promotion and advertisement resources are allocated.
+
+Finding 3: Promotion and advertisement resources
+=========================================
+
+The above graph ranks each brand by the total number of units sold per brand, broken down by the type of ad that was ran for each brand, and the below shows the total number of units sold with or without promotions. When compared to the other brands in the graph, we see that any sized ad is not a determining factor in number of units sold, though further analysis is needed.  Looking at the table we also observe that Posts HBO runs the second most number of promotions after Kellogg FF, with Post SW running the least.  Yet HBO still has the highest number of units sold, and SW sold more units than SS.  Signaling that there is a mixed correlation between number of promotions and total units sold, and there is likely another factor that determine number of units sold.  that HBO, SW, and FF all run a majority of their ads at the same time as in store promotions When looked at in combination with the previous graphs. 
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+grid.arrange(
+ggplot(mtp.pk,aes(x=company, y=units,fill=ad))  + 
+    stat_summary(fun.y = "sum", geom ="bar", position = "stack") +
+    geom_bar(stat="identity") +
+    labs(fill = "Ad Type") +
+    ggtitle("Kelloggs spends more in pormo and ad") +
+    ylab("Units Sold") +
+    xlab("Company") +
+    theme_light() +
+    facet_grid(. ~ promo),
+ggplot(mtp.pk, aes(x=promo, y=units, fill = company)) + 
+  stat_summary(fun.y = "sum", geom ="bar", position = "stack") +
+  labs(fill = "Company Name") +
+  ylab("Units Sold") +
+  xlab("Promotions") +
+  theme_light() +
+  facet_grid(. ~ ad),
+nrow = 2  
+)
+
+```
+
+Conclusion 
+=========================================
+In terms of promotion and advertising effectiveness, the analysis of the data provided shows us that there is no guarantee that more promotions or advertisements will translate into greater sales dollars or volume.  Without cost data, it is impossible to determine the true effectiveness of promotions or ads in terms of sales dollars.  The only definitive suggestion that can be made at this time is for Post to not increase the number of promotions and ads that they run. 
+
+
+#######
+
+
+Technical Appendix
+=========================================
+
+###Looking relationships accross comapny, brand and Cereal Type
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+## Group by company as a table 
+kable(mtp %>%
+  group_by(company) %>%
+  select(promo) %>%
+  table() )
+```
+
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+## Group by flavor as a table 
+kable(mtp %>%
+  group_by(flavor) %>%
+  select(company) %>%
+  table() )
+## 1 overlap on by regular flavor with kelloggs and post
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+## Group by grain as a table 
+kable(mtp %>%
+  group_by(grain) %>%
+  select(company) %>%
+  table())
+## 2 overlap on by grain with kelloggs and post 
+```
+
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+## Group by brand as a table 
+kable(mtp %>%
+  group_by(brand) %>%
+  select(company) %>%
+  table() )
+
+## No overlap on brand. 
+```
+
+###Sales, Volume and Units Analysis
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Total Volueme vs Total Sales
+ggplot(mtp, aes(x = TotalVolume, y = TotalSale, col = ad)) +
+ geom_jitter(alpha = 0.2) +
+ stat_smooth() +
+ facet_grid(. ~ promo)
+
+#make sense
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Units Sold vs Total Sales
+ggplot(mtp, aes(x = units, y = TotalSale, col = ad)) +
+ geom_jitter(alpha = 0.2) +
+ stat_smooth() +
+ facet_grid(. ~ promo)
+```
+
+###Regression line analysis by company
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# 
+ggplot(mtp, aes(units, TotalSale, col = ad)) +
+  stat_smooth() +
+  geom_point() +
+  facet_grid(. ~ company)
+```
+
+###Analysis relationships accross comapny, brand, ad with Sale/units Range
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
+#is there any indentifiable relationship beetween ad and promo?
+grid.arrange(
+ggplot(mtp, aes(mean(TotalSale), units, fill = ad)) +
+  geom_boxplot() +
+  facet_grid(. ~ company),
+ggplot(mtp, aes(mean(TotalSale), units, fill = promo)) +
+  geom_boxplot() +
+  facet_grid(. ~ company),
+ncol = 1  
+)  
+
+##Doesnt look like it 
+```
