@@ -2,11 +2,13 @@
 title: "Sales Analysis"
 author: "Afsar Ali"
 output: 
-  html_document: 
-    df_print: kable
-    fig_caption: yes
+  prettydoc::html_pretty:
+    theme: Cayman
+    highlight: github
+    df_print: paged
     toc: yes
-    toc_depth: 4
+    toc_depth: '4'
+    fig_caption: yes
 ---
 
 

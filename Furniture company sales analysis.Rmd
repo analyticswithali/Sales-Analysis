@@ -2,9 +2,12 @@
 title: "Furniture company sales analysis"
 author: "Afsar Ali"
 output:
-  html_document:
+  prettydoc::html_pretty:
+    theme: Cayman
+    highlight: github
+    df_print: paged
     toc: yes
-    toc_depth: 3
+    toc_depth: '4'  
 ---
 
 ### Code header 
